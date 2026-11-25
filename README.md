@@ -23,7 +23,8 @@ Erkenntnisse aus der Psychologie, unter anderem:
 
 ## Geplante Funktionen
 
-- [ ] Schnelles, ablenkungsfreies Schreiben – komplett offline, Daten bleiben auf dem Gerät
+- [x] Schnelles, ablenkungsfreies Schreiben – komplett offline, Daten bleiben auf dem Gerät
+- [x] Automatisches Speichern und Übersicht aller Einträge
 - [ ] Buch-Design mit Kapiteln (dunkelblau, lila, ruhig, im Stil eines Notizbuchs)
 - [ ] Schreibmodi: freies Schreiben, Gefühle benennen, Gedanken-Check, Entscheidungen
 - [ ] Verschönern von Einträgen mit KI-Unterstützung (das Original bleibt immer erhalten)
@@ -32,8 +33,11 @@ Erkenntnisse aus der Psychologie, unter anderem:
 
 ## Status
 
-🚧 **Phase 0 – Fundament.** Das Projekt ist eingerichtet, die App zeigt bisher
-nur einen Startbildschirm.
+✅ **Phase 1 – Kern abgeschlossen.** Die App startet direkt auf einer leeren
+Seite, speichert automatisch in einer lokalen Datenbank und zeigt alle
+Einträge in einer Übersicht (öffnen, weiterschreiben, löschen).
+
+🚧 **Als Nächstes: Phase 2 – Design** (Buch-Look mit Kapiteln).
 
 ## Technik
 

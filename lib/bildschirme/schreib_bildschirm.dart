@@ -13,6 +13,8 @@
 //   4. Bei der Rückkehr in die App: Ist die letzte Änderung ≥ 15 Minuten her?
 //      → Neue, leere Seite beginnen.
 //   5. Knopf „＋“: aktuellen Eintrag speichern und neue Seite beginnen.
+//   6. Buch-Knopf oben links: Übersicht aller Einträge öffnen. Tippst du dort
+//      einen Eintrag an, wird er hier zum Weiterschreiben geöffnet.
 //
 // NEU IN DIESER DATEI: „StatefulWidget“
 //   Bisher kannten wir nur `StatelessWidget` (sieht immer gleich aus).
@@ -37,6 +39,8 @@ import 'package:material_ui/material_ui.dart';
 // Unsere Datenbank. `../` heißt: einen Ordner nach oben (von `bildschirme/`
 // nach `lib/`), dann in `daten/`.
 import '../daten/datenbank.dart';
+// Die Übersicht aller Einträge (wird über den Buch-Knopf oben links geöffnet).
+import 'eintraege_bildschirm.dart';
 
 /// Die möglichen Zustände der Speicheranzeige unten rechts.
 ///
@@ -175,24 +179,29 @@ class _SchreibBildschirmState extends State<SchreibBildschirm> {
     // Dann dürfen wir `setState` nicht mehr aufrufen.
     if (!mounted) return;
 
-    setState(() {
-      if (eintrag != null) {
-        _eintragId = eintrag.id;
-        _datum = eintrag.erstelltAm;
-        _gespeicherterText = eintrag.inhalt;
-        // Text setzen UND den Cursor ans Ende stellen, damit du direkt
-        // weiterschreiben kannst.
-        _textController.value = TextEditingValue(
-          text: eintrag.inhalt,
-          selection: TextSelection.collapsed(offset: eintrag.inhalt.length),
-        );
-        _status = SpeicherStatus.gespeichert;
-      }
-      _laedt = false;
-    });
+    if (eintrag != null) _eintragAnzeigen(eintrag);
+    setState(() => _laedt = false);
 
     // Tastatur öffnen. `requestFocus` aktiviert das Eingabefeld.
     _fokus.requestFocus();
+  }
+
+  /// Zeigt einen vorhandenen [eintrag] auf der Schreibseite an, sodass du
+  /// darin weiterschreiben kannst. Wird beim Start (15-Minuten-Regel) und
+  /// beim Öffnen eines Eintrags aus der Übersicht verwendet.
+  void _eintragAnzeigen(Eintrag eintrag) {
+    setState(() {
+      _eintragId = eintrag.id;
+      _datum = eintrag.erstelltAm;
+      _gespeicherterText = eintrag.inhalt;
+      // Text setzen UND den Cursor ans Ende stellen, damit du direkt
+      // weiterschreiben kannst.
+      _textController.value = TextEditingValue(
+        text: eintrag.inhalt,
+        selection: TextSelection.collapsed(offset: eintrag.inhalt.length),
+      );
+      _status = SpeicherStatus.gespeichert;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -258,6 +267,12 @@ class _SchreibBildschirmState extends State<SchreibBildschirm> {
     await _sofortSpeichern(); // erst sichern, dann leeren
 
     if (!mounted) return;
+    _seiteZuruecksetzen();
+  }
+
+  /// Leert die Seite OHNE vorher zu speichern. Nur direkt verwenden, wenn
+  /// bereits alles gesichert ist (oder der Eintrag gar nicht mehr existiert).
+  void _seiteZuruecksetzen() {
     setState(() {
       _eintragId = null;
       _datum = DateTime.now();
@@ -266,6 +281,55 @@ class _SchreibBildschirmState extends State<SchreibBildschirm> {
       _status = SpeicherStatus.keiner;
     });
     _fokus.requestFocus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // ÜBERSICHT ÖFFNEN
+  // ---------------------------------------------------------------------------
+
+  /// Öffnet die Übersicht aller Einträge.
+  ///
+  /// Ablauf:
+  ///   1. Aktuellen Text sichern.
+  ///   2. Übersicht anzeigen und warten, bis sie wieder geschlossen wird.
+  ///   3. Wurde ein Eintrag angetippt, kommt seine id zurück → diesen öffnen.
+  ///   4. Sicherheitscheck: Wurde der gerade offene Eintrag in der Übersicht
+  ///      gelöscht? → neue Seite, sonst würde ins Leere gespeichert.
+  Future<void> _eintraegeOeffnen() async {
+    await _sofortSpeichern();
+    // Nach einem `await` immer prüfen, ob der Bildschirm noch existiert,
+    // bevor wir `context` benutzen.
+    if (!mounted) return;
+
+    // `Navigator.push` legt die Übersicht oben auf den Bildschirm-Stapel.
+    // `MaterialPageRoute` sorgt für die typische Übergangsanimation.
+    // `<int>` = wir erwarten als Ergebnis eine Zahl (die id) – oder `null`,
+    // wenn einfach mit dem Zurück-Pfeil geschlossen wurde.
+    final gewaehlteId = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (_) => EintraegeBildschirm(datenbank: widget.datenbank),
+      ),
+    );
+    if (!mounted) return;
+
+    // Fall 3: Ein Eintrag wurde angetippt → laden und anzeigen.
+    if (gewaehlteId != null) {
+      final eintrag = await widget.datenbank.eintragLaden(gewaehlteId);
+      if (!mounted) return;
+      if (eintrag != null) {
+        _eintragAnzeigen(eintrag);
+        _fokus.requestFocus();
+        return;
+      }
+    }
+
+    // Fall 4: Existiert der offene Eintrag noch?
+    final offeneId = _eintragId;
+    if (offeneId != null &&
+        await widget.datenbank.eintragLaden(offeneId) == null) {
+      if (!mounted) return;
+      _seiteZuruecksetzen();
+    }
   }
 
   /// Wird aufgerufen, wenn du in die App zurückkehrst.
@@ -299,6 +363,12 @@ class _SchreibBildschirmState extends State<SchreibBildschirm> {
     return Scaffold(
       // Die Kopfleiste oben.
       appBar: AppBar(
+        // `leading` = der Platz ganz links in der Kopfleiste.
+        leading: IconButton(
+          icon: const Icon(Icons.auto_stories), // Buch-Symbol
+          tooltip: 'Einträge',
+          onPressed: _laedt ? null : _eintraegeOeffnen,
+        ),
         title: Text(datumText, style: theme.textTheme.titleMedium),
         // `actions` = Knöpfe auf der rechten Seite der Kopfleiste.
         actions: [
