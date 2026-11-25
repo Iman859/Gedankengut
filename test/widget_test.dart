@@ -79,7 +79,9 @@ void main() {
     // Liegt der Eintrag jetzt in der Datenbank?
     final eintrag = await db.eintragZumWeiterschreiben();
     expect(eintrag?.inhalt, 'Heute war ein guter Tag.');
-    expect(find.text('✓ gespeichert'), findsOneWidget);
+    expect(find.text('GESPEICHERT'), findsOneWidget);
+    // Die Wortanzahl unten links: „Heute war ein guter Tag.“ = 5 Wörter.
+    expect(find.text('5 WÖRTER'), findsOneWidget);
 
     await appBeenden(tester);
   });

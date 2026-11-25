@@ -157,10 +157,15 @@ abstract final class GedankengutSchriften {
     groesse: 10.5,
     farbe: GedankengutFarben.ultramarinHell,
     sperrung: 3.1,
+    // Zwei Schatten-Schichten für ein kräftigeres Neon-Leuchten.
     leuchten: [
       Shadow(
-        color: GedankengutFarben.ultramarin.withValues(alpha: 0.85),
-        blurRadius: 10,
+        color: GedankengutFarben.ultramarin.withValues(alpha: 0.95),
+        blurRadius: 8,
+      ),
+      Shadow(
+        color: GedankengutFarben.ultramarin.withValues(alpha: 0.6),
+        blurRadius: 18,
       ),
     ],
   );

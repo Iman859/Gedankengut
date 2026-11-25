@@ -107,7 +107,11 @@ abstract final class GedankengutFarben {
 
   /// Erzeugt einen Neon-Leuchteffekt für FLÄCHEN (Knöpfe, Karten, Linien).
   /// `BoxShadow` ist der Schatten eines Kastens – hier als Lichtschein genutzt.
+  ///
+  /// Zwei Schichten (Feinschliff 2b, „poppiger“): ein kräftiger, enger Schein
+  /// und ein schwacher, weiter Hof drumherum – so wirkt es wie echtes Neon.
   static List<BoxShadow> flaechenLeuchten(Color farbe, {double radius = 14}) => [
-        BoxShadow(color: farbe.withValues(alpha: 0.35), blurRadius: radius),
+        BoxShadow(color: farbe.withValues(alpha: 0.5), blurRadius: radius),
+        BoxShadow(color: farbe.withValues(alpha: 0.2), blurRadius: radius * 2.2),
       ];
 }

@@ -16,6 +16,11 @@
 //   6. Buch-Knopf oben links: Übersicht aller Einträge öffnen. Tippst du dort
 //      einen Eintrag an, wird er hier zum Weiterschreiben geöffnet.
 //
+// AUSSEHEN (Design „Neon-Eleganz“, Phase 2b):
+//   Sternenhimmel im Hintergrund, leuchtende Buchrücken-Linie links,
+//   Neon-Knöpfe, Datum in Bodoni, Text in Playfair, Fokus-Modus (aktueller
+//   Satz hervorgehoben), unten Wortanzahl und Speicherstatus.
+//
 // NEU IN DIESER DATEI: „StatefulWidget“
 //   Bisher kannten wir nur `StatelessWidget` (sieht immer gleich aus).
 //   Hier verändert sich aber etwas: dein Text, der Speicherstatus, das Datum.
@@ -39,8 +44,16 @@ import 'package:material_ui/material_ui.dart';
 // Unsere Datenbank. `../` heißt: einen Ordner nach oben (von `bildschirme/`
 // nach `lib/`), dann in `daten/`.
 import '../daten/datenbank.dart';
+// Design-Bausteine: Farben, Schriften, Sternenhimmel, Knöpfe, Leuchtlinien.
+import '../design/farben.dart';
+import '../design/leuchtlinien.dart';
+import '../design/neon_knopf.dart';
+import '../design/schriften.dart';
+import '../design/sternenhimmel.dart';
 // Die Übersicht aller Einträge (wird über den Buch-Knopf oben links geöffnet).
 import 'eintraege_bildschirm.dart';
+// Der Fokus-Modus (hebt den aktuellen Satz hervor) und der Wortzähler.
+import 'fokus_controller.dart';
 
 /// Die möglichen Zustände der Speicheranzeige unten rechts.
 ///
@@ -92,7 +105,9 @@ class _SchreibBildschirmState extends State<SchreibBildschirm> {
 
   /// Verwaltet den Text im Eingabefeld. Darüber können wir den Text lesen
   /// (`.text`) und von außen setzen (z. B. beim Laden oder für eine neue Seite).
-  final TextEditingController _textController = TextEditingController();
+  /// Es ist unser eigener `FokusTextController` – er sorgt zusätzlich dafür,
+  /// dass der Satz, an dem du gerade schreibst, hervorgehoben wird.
+  final FokusTextController _textController = FokusTextController();
 
   /// Steuert, ob das Eingabefeld „aktiv“ ist (blinkender Cursor, Tastatur
   /// offen). Damit öffnen wir die Tastatur automatisch.
@@ -352,108 +367,179 @@ class _SchreibBildschirmState extends State<SchreibBildschirm> {
   // ---------------------------------------------------------------------------
 
   /// Baut den Bildschirm. Wird bei jedem `setState` erneut aufgerufen.
+  ///
+  /// Aufbau in Ebenen (ein `Stack` legt Widgets ÜBEREINANDER, das erste
+  /// ganz unten):
+  ///   1. Sternenhimmel (Hintergrund)
+  ///   2. Buchrücken-Linie am linken Rand
+  ///   3. Der eigentliche Inhalt: Kopfzeile, Leuchtlinie, Schreibfeld, Fußzeile
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Datum auf Deutsch formatieren, z. B. „Mittwoch, 25. November“.
-    // EEEE = Wochentag ausgeschrieben, d = Tag, MMMM = Monat ausgeschrieben.
-    final datumText = DateFormat('EEEE, d. MMMM', 'de_DE').format(_datum);
-
     return Scaffold(
-      // Die Kopfleiste oben.
-      appBar: AppBar(
-        // `leading` = der Platz ganz links in der Kopfleiste.
-        leading: IconButton(
-          icon: const Icon(Icons.auto_stories), // Buch-Symbol
-          tooltip: 'Einträge',
-          onPressed: _laedt ? null : _eintraegeOeffnen,
-        ),
-        title: Text(datumText, style: theme.textTheme.titleMedium),
-        // `actions` = Knöpfe auf der rechten Seite der Kopfleiste.
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            // `tooltip` erscheint bei langem Drücken – und hilft Screenreadern.
-            tooltip: 'Neue Seite',
-            // Während des Ladens deaktiviert (`null` = Knopf ausgegraut).
-            onPressed: _laedt ? null : _neueSeite,
+      body: Stack(
+        children: [
+          // `Positioned.fill` = füllt den ganzen Stack aus.
+          const Positioned.fill(child: Sternenhimmel()),
+          const Buchruecken(),
+          // `SafeArea` hält Abstand zu Kamera-Aussparung, Statusleiste usw.
+          SafeArea(
+            child: Column(
+              children: [
+                _kopfzeile(),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(34, 0, 16, 0),
+                  child: Trennleuchtlinie(),
+                ),
+                // `Expanded` lässt das Schreibfeld den freien Platz füllen.
+                Expanded(child: _schreibfeld()),
+                _fusszeile(),
+              ],
+            ),
           ),
         ],
       ),
-      // `SafeArea` hält Abstand zu Kamera-Aussparung, Navigationsleiste usw.
-      body: SafeArea(
-        child: Column(
-          children: [
-            // `Expanded` lässt das Eingabefeld den ganzen freien Platz füllen.
-            Expanded(
-              child: Padding(
-                // Abstand links/rechts 24, oben 8 – damit der Text „atmet“.
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                child: TextField(
-                  controller: _textController,
-                  focusNode: _fokus,
-                  // Während des Ladens kein Tippen möglich.
-                  enabled: !_laedt,
-                  onChanged: _beiTextAenderung,
-                  // `maxLines: null` + `expands: true` = beliebig viele
-                  // Zeilen, Feld füllt die ganze Höhe aus.
-                  maxLines: null,
-                  expands: true,
-                  keyboardType: TextInputType.multiline,
-                  // Satzanfänge automatisch großschreiben.
-                  textCapitalization: TextCapitalization.sentences,
-                  // Text oben beginnen (statt vertikal zentriert).
-                  textAlignVertical: TextAlignVertical.top,
-                  // Etwas größere Schrift und viel Zeilenabstand (`height`
-                  // = 1,6-fache Schriftgröße) für angenehmes Lesen/Schreiben.
-                  // VORLÄUFIG – das richtige Design kommt in Phase 2.
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontSize: 18,
-                    height: 1.6,
-                  ),
-                  // `InputDecoration.collapsed` = ohne Rahmen und Linie,
-                  // nur der Hinweistext. Wie ein leeres Blatt Papier.
-                  decoration: InputDecoration.collapsed(
-                    hintText: SchreibBildschirm.hinweisText,
-                    hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                      fontSize: 18,
-                      height: 1.6,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+    );
+  }
+
+  /// Die Kopfzeile: links „Einträge“, Mitte Datum, rechts „Neue Seite“.
+  Widget _kopfzeile() {
+    // Datum auf Deutsch formatieren:
+    //   oben klein „MITTWOCH · 22:41“ (EEEE = Wochentag, HH:mm = Uhrzeit),
+    //   darunter groß „25. November“ (d = Tag, MMMM = Monat ausgeschrieben).
+    final wochentagUndZeit =
+        DateFormat('EEEE · HH:mm', 'de_DE').format(_datum).toUpperCase();
+    final datum = DateFormat('d. MMMM', 'de_DE').format(_datum);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(34, 12, 16, 14),
+      // `Row` ordnet Widgets NEBENEINANDER an (das Gegenstück zu `Column`).
+      child: Row(
+        children: [
+          NeonKnopf(
+            symbol: Icons.auto_stories, // Buch-Symbol
+            hinweis: 'Einträge',
+            // Während des Ladens deaktiviert (`null` = ausgegraut).
+            beiDruck: _laedt ? null : _eintraegeOeffnen,
+          ),
+          // Die Mitte nimmt den restlichen Platz ein, Text zentriert.
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  wochentagUndZeit,
+                  style: GedankengutSchriften.beschriftungLeuchtend,
+                  textAlign: TextAlign.center,
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(datum, style: GedankengutSchriften.datumKopf),
+              ],
             ),
-            // Die Statusanzeige unten rechts.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _statusAnzeige(theme),
-              ),
-            ),
-          ],
+          ),
+          NeonKnopf(
+            symbol: Icons.add,
+            hinweis: 'Neue Seite',
+            farbe: NeonFarbe.magenta,
+            beiDruck: _laedt ? null : _neueSeite,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Das Schreibfeld – hier tippst du deine Gedanken.
+  Widget _schreibfeld() {
+    return Padding(
+      // Links mehr Abstand wegen der Buchrücken-Linie.
+      padding: const EdgeInsets.fromLTRB(40, 22, 26, 0),
+      child: TextField(
+        controller: _textController,
+        focusNode: _fokus,
+        // Während des Ladens kein Tippen möglich.
+        enabled: !_laedt,
+        onChanged: _beiTextAenderung,
+        // `maxLines: null` + `expands: true` = beliebig viele Zeilen,
+        // Feld füllt die ganze Höhe aus.
+        maxLines: null,
+        expands: true,
+        keyboardType: TextInputType.multiline,
+        // Satzanfänge automatisch großschreiben.
+        textCapitalization: TextCapitalization.sentences,
+        // Text oben beginnen (statt vertikal zentriert).
+        textAlignVertical: TextAlignVertical.top,
+        // Playfair, 18,5 Pixel, etwas dünner, viel Zeilenabstand.
+        style: GedankengutSchriften.schreibtext,
+        // `InputDecoration.collapsed` = ohne Rahmen und Linie, nur der
+        // Hinweistext. Wie ein leeres Blatt Papier.
+        decoration: InputDecoration.collapsed(
+          hintText: SchreibBildschirm.hinweisText,
+          hintStyle: GedankengutSchriften.schreibtext.copyWith(
+            color: GedankengutFarben.gedaempft,
+          ),
         ),
       ),
     );
   }
 
-  /// Baut die kleine Statusanzeige („speichert …“ / „✓ gespeichert“).
-  /// In eine eigene Methode ausgelagert, damit `build` übersichtlich bleibt.
-  Widget _statusAnzeige(ThemeData theme) {
+  /// Die Fußzeile: links die Wortanzahl, rechts der Speicherstatus.
+  Widget _fusszeile() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 10, 26, 16),
+      child: Row(
+        // Links und rechts ausrichten, Platz dazwischen.
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // `ValueListenableBuilder` hört direkt auf den Text-Controller und
+          // baut NUR diese kleine Anzeige neu, wenn sich der Text ändert –
+          // nicht den ganzen Bildschirm. Das hält das Tippen flüssig.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _textController,
+            builder: (context, wert, _) {
+              final anzahl = woerterZaehlen(wert.text);
+              // Leere Seite → keine Anzeige.
+              if (anzahl == 0) return const SizedBox.shrink();
+              return Text(
+                anzahl == 1 ? '1 WORT' : '$anzahl WÖRTER',
+                style: GedankengutSchriften.beschriftung,
+              );
+            },
+          ),
+          _statusAnzeige(),
+        ],
+      ),
+    );
+  }
+
+  /// Baut die Statusanzeige: leuchtender Punkt + „GESPEICHERT“ bzw.
+  /// „SPEICHERT …“ – oder nichts, wenn es (noch) nichts zu speichern gibt.
+  Widget _statusAnzeige() {
     // `switch` wählt je nach Status den passenden Text.
     final text = switch (_status) {
-      SpeicherStatus.keiner => '',
-      SpeicherStatus.speichert => 'speichert …',
-      SpeicherStatus.gespeichert => '✓ gespeichert',
+      SpeicherStatus.keiner => null,
+      SpeicherStatus.speichert => 'SPEICHERT …',
+      SpeicherStatus.gespeichert => 'GESPEICHERT',
     };
+    if (text == null) return const SizedBox.shrink();
 
-    return Text(
-      text,
-      style: theme.textTheme.labelSmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Der kleine leuchtende Punkt in Ultramarin.
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: GedankengutFarben.ultramarin,
+            shape: BoxShape.circle,
+            boxShadow: GedankengutFarben.flaechenLeuchten(
+              GedankengutFarben.ultramarin,
+              radius: 8,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(text, style: GedankengutSchriften.beschriftung),
+      ],
     );
   }
 }
