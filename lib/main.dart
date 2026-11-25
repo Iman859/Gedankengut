@@ -14,6 +14,12 @@
 //   oder wie russische Matroschka-Puppen. Das Ergebnis nennt man „Widget-Baum“.
 // =============================================================================
 
+// `foundation.dart` enthält die `LicenseRegistry` (Liste aller Lizenzen),
+// `services.dart` u. a. `SystemChrome` (Systemleisten) und `rootBundle`
+// (Zugriff auf eingebaute Dateien wie unsere Lizenztexte).
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
 // Lädt die Datumsformate für eine bestimmte Sprache (bei uns Deutsch), damit
 // z. B. „Mittwoch, 25. November“ statt „Wednesday, November 25“ angezeigt wird.
 import 'package:intl/date_symbol_data_local.dart';
@@ -27,6 +33,7 @@ import 'package:material_ui/material_ui.dart';
 // `package:gedankengut/...` zeigt auf den Ordner `lib/` unseres Projekts.
 import 'package:gedankengut/bildschirme/schreib_bildschirm.dart';
 import 'package:gedankengut/daten/datenbank.dart';
+import 'package:gedankengut/design/thema.dart';
 
 /// Die Funktion `main()` ist der Startpunkt JEDES Dart-Programms.
 /// Wenn du die App auf dem Handy antippst, wird genau diese Funktion zuerst
@@ -42,12 +49,37 @@ Future<void> main() async {
   // Deutsche Datumsformate laden.
   await initializeDateFormatting('de_DE');
 
+  // Android-Systemleisten (oben Uhrzeit/Akku, unten Navigation) passend zum
+  // Nachthimmel einfärben – schon bevor der erste Bildschirm erscheint.
+  SystemChrome.setSystemUIOverlayStyle(gedankengutSystemleisten);
+
+  // Die Lizenzen unserer Schriften bei Flutter anmelden. Flutter sammelt alle
+  // Lizenzen (auch die der verwendeten Pakete) und kann sie in einer Liste
+  // anzeigen. Die Schriftlizenz (OFL) verlangt, dass ihr Text mitgeliefert wird.
+  LicenseRegistry.addLicense(_schriftLizenzen);
+
   // Die Datenbank EINMAL für die ganze App erzeugen. Sie wird dann an die
   // Bildschirme weitergereicht, die sie brauchen.
   final datenbank = GedankengutDatenbank();
 
   // `runApp` nimmt unser oberstes Widget und zeichnet es auf den Bildschirm.
   runApp(GedankengutApp(datenbank: datenbank));
+}
+
+/// Liefert die Lizenztexte der eingebauten Schriften an Flutters Lizenzliste.
+///
+/// `async*` + `yield` bilden einen „Stream“: Die Funktion gibt nacheinander
+/// mehrere Ergebnisse aus – hier einen Lizenzeintrag pro Schrift.
+/// `rootBundle.loadString` liest eine in die App eingebaute Textdatei.
+Stream<LicenseEntry> _schriftLizenzen() async* {
+  yield LicenseEntryWithLineBreaks(
+    ['Playfair (Schrift)'],
+    await rootBundle.loadString('assets/schriften/OFL-Playfair.txt'),
+  );
+  yield LicenseEntryWithLineBreaks(
+    ['Bodoni Moda (Schrift)'],
+    await rootBundle.loadString('assets/schriften/OFL-BodoniModa.txt'),
+  );
 }
 
 /// Das oberste Widget der App – quasi der „Rahmen“ um alles andere.
@@ -82,19 +114,16 @@ class GedankengutApp extends StatelessWidget {
       // der Entwicklung sonst anzeigt.
       debugShowCheckedModeBanner: false,
 
-      // Das Theme legt das Aussehen der ganzen App fest.
-      // VORLÄUFIG: Ein dunkles Schema auf Basis von Lila. Das echte Design
-      // (Dunkelblau, Lila, Neon-Akzente, Notizbuch-Look) entwerfen wir in
-      // Phase 2 gemeinsam und du segnest es ab.
-      theme: ThemeData(
-        // `ColorScheme.fromSeed` erzeugt aus EINER Grundfarbe automatisch
-        // eine ganze, harmonische Farbpalette.
-        colorScheme: ColorScheme.fromSeed(
-          // Farbe im Format 0xAARRGGBB (Deckkraft, Rot, Grün, Blau – hexadezimal).
-          seedColor: const Color(0xFF7C4DFF), // ein kräftiges Lila
-          brightness: Brightness.dark, // dunkler Modus – angenehm am Abend
-        ),
-      ),
+      // Das Theme legt das Aussehen der ganzen App fest: Design
+      // „Neon-Eleganz“ (Farben, Schriften, Dialoge …) aus lib/design/thema.dart.
+      theme: gedankengutThema(),
+
+      // SPRACHE: Die App ist auf Deutsch. Die „Delegates“ liefern Flutters
+      // eingebaute Texte (z. B. das Menü „Kopieren / Einfügen“ beim langen
+      // Drücken auf Text) in der eingestellten Sprache.
+      locale: const Locale('de', 'DE'),
+      supportedLocales: const [Locale('de', 'DE')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
 
       // `home` ist der erste Bildschirm, den man nach dem Start sieht:
       // direkt die Schreibseite – so ist die Hürde zum Schreiben minimal.

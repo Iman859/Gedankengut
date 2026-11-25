@@ -63,6 +63,34 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # ---------------------------------------------------------------------------
+  # SCHRIFTEN von Gedankengut (Design „Neon-Eleganz“)
+  # ---------------------------------------------------------------------------
+  # Die Dateien liegen in assets/schriften/ und werden in die App eingebaut –
+  # dadurch funktionieren sie offline und ohne Anfragen an fremde Server.
+  # Beide sind „variable“ Schriften: eine Datei enthält alle Strichstärken
+  # (die genaue Stärke setzen wir im Code, siehe lib/design/schriften.dart).
+  # Lizenz: SIL Open Font License 1.1 (siehe assets/schriften/OFL-*.txt).
+  fonts:
+    # Playfair – für Lesen und Schreiben (Fließtext, Initiale).
+    - family: Playfair
+      fonts:
+        - asset: assets/schriften/Playfair-Variabel.ttf
+        - asset: assets/schriften/Playfair-Kursiv-Variabel.ttf
+          style: italic
+    # Bodoni Moda – für Überschriften, Datum und Beschriftungen.
+    - family: BodoniModa
+      fonts:
+        - asset: assets/schriften/BodoniModa-Variabel.ttf
+        - asset: assets/schriften/BodoniModa-Kursiv-Variabel.ttf
+          style: italic
+
+  # Weitere Dateien, die in die App eingebaut werden:
+  # die Lizenztexte der Schriften (werden in Flutters Lizenzliste angezeigt).
+  assets:
+    - assets/schriften/OFL-Playfair.txt
+    - assets/schriften/OFL-BodoniModa.txt
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

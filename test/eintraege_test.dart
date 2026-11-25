@@ -158,8 +158,9 @@ void main() {
     await tester.tap(find.text('Löschen'));
     await tester.pumpAndSettle();
 
-    // Mit dem Zurück-Pfeil zur Schreibseite.
-    await tester.pageBack();
+    // Mit dem Zurück-Pfeil zur Schreibseite. Der Knopf wird über seinen
+    // (deutschen) Hinweistext „Zurück“ gefunden.
+    await tester.tap(find.byTooltip('Zurück'));
     await tester.pumpAndSettle();
 
     // Die Seite ist jetzt leer (Hinweistext sichtbar).

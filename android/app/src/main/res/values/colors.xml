@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Farben, die Android VOR dem Start von Flutter braucht (Startbildschirm,
+  Fensterhintergrund). Muss zur Farbe „nacht“ in lib/design/farben.dart passen,
+  damit beim Öffnen der App nichts aufblitzt.
+-->
+<resources>
+    <color name="nacht">#060815</color>
+</resources>

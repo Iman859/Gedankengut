@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ab Android 12 (API 31) zeigt das System einen eigenen Startbildschirm mit dem
+  App-Icon. Hier legen wir dessen Hintergrund auf Nachtschwarz fest.
+  (Gilt automatisch auch im dunklen Systemdesign.)
+-->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/nacht</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/nacht</item>
+    </style>
+</resources>
