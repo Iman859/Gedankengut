@@ -98,8 +98,12 @@ void main() {
       tester.getTopLeft(dienstag).dy,
       lessThan(tester.getTopLeft(montag).dy),
     );
-    // Das deutsche Datum wird angezeigt.
-    expect(find.text('Mo., 23. November 2026 · 21:00'), findsOneWidget);
+    // Das deutsche Datum wird angezeigt: Monatsüberschrift, Tageszahl und
+    // kurzer Wochentag auf der Karte, Seitenzähler unter dem Titel.
+    expect(find.text('NOVEMBER 2026'), findsOneWidget);
+    expect(find.text('23'), findsOneWidget);
+    expect(find.text('MO'), findsOneWidget);
+    expect(find.text('2 SEITEN · SEIT NOVEMBER'), findsOneWidget);
 
     // Montag antippen → zurück auf der Schreibseite, Eintrag ist geladen.
     await tester.tap(montag);
@@ -167,5 +171,56 @@ void main() {
     expect(find.text(SchreibBildschirm.hinweisText), findsOneWidget);
 
     await appBeenden(tester);
+  });
+  // ---------------------------------------------------------------------------
+  // Reine Hilfsfunktionen (ohne Oberfläche)
+  // ---------------------------------------------------------------------------
+
+  /// Hilfsfunktion: erzeugt einen Eintrag für Tests (ohne Datenbank).
+  Eintrag testEintrag(int id, DateTime erstellt) => Eintrag(
+        id: id,
+        inhalt: 'Eintrag $id',
+        erstelltAm: erstellt,
+        geaendertAm: erstellt,
+      );
+
+  group('monateGruppieren', () {
+    test('teilt Einträge nach Monaten auf und behält die Reihenfolge', () {
+      final gruppen = monateGruppieren([
+        testEintrag(3, DateTime(2026, 11, 25)),
+        testEintrag(2, DateTime(2026, 11, 24)),
+        testEintrag(1, DateTime(2026, 10, 30)),
+      ]);
+
+      expect(gruppen, hasLength(2));
+      expect(gruppen[0].monat, DateTime(2026, 11));
+      expect(gruppen[0].eintraege.map((e) => e.id), [3, 2]);
+      expect(gruppen[1].monat, DateTime(2026, 10));
+      expect(gruppen[1].eintraege.map((e) => e.id), [1]);
+    });
+
+    test('leere Liste ergibt keine Gruppen', () {
+      expect(monateGruppieren([]), isEmpty);
+    });
+  });
+
+  group('uebersichtUntertitel', () {
+    test('Einzahl und Monat ohne Jahr', () {
+      expect(
+        uebersichtUntertitel([testEintrag(1, DateTime(2026, 11, 25))]),
+        '1 SEITE · SEIT NOVEMBER',
+      );
+    });
+
+    test('Jahr wird angehängt, wenn der älteste Eintrag älter als dieses Jahr ist',
+        () {
+      expect(
+        uebersichtUntertitel([
+          testEintrag(2, DateTime(2026, 1, 5)),
+          testEintrag(1, DateTime(2025, 12, 31)),
+        ]),
+        '2 SEITEN · SEIT DEZEMBER 2025',
+      );
+    });
   });
 }
