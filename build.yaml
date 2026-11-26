@@ -1,0 +1,33 @@
+# =============================================================================
+# build.yaml – Einstellungen für die Code-Erzeugung (build_runner / Drift)
+# =============================================================================
+#
+# Hier sagen wir Drift, wo unsere Datenbank definiert ist. Das braucht vor
+# allem das Migrations-Werkzeug:
+#
+#   dart run drift_dev make-migrations
+#
+# Es speichert bei jedem Aufruf einen „Schnappschuss“ des Datenbank-Aufbaus
+# (pro Versionsnummer) in `drift_schemas/` und erzeugt daraus Hilfen und
+# Tests, mit denen wir prüfen, dass beim Update der App (z. B. von Version 1
+# auf 2) keine Einträge verloren gehen.
+#
+# WICHTIGER ABLAUF bei jeder künftigen Änderung der Datenbank:
+#   1. VOR der Änderung einmal `make-migrations` ausführen (falls der aktuelle
+#      Stand noch keinen Schnappschuss hat),
+#   2. Tabellen ändern + `schemaVersion` erhöhen,
+#   3. `dart run build_runner build` und erneut `make-migrations`,
+#   4. Migrationsschritt schreiben + Tests ausführen.
+# =============================================================================
+
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # Name der Datenbank → Datei, in der sie definiert ist.
+          databases:
+            gedankengut: lib/daten/datenbank.dart
+          # Wo die Schnappschüsse und die erzeugten Tests liegen (Standardwerte).
+          schema_dir: drift_schemas/
+          test_dir: test/drift/

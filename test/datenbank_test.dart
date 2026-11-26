@@ -122,4 +122,120 @@ void main() {
       expect(await db.eintragZumWeiterschreiben(), isNull);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // NEU in Version 2: Titel, Buch-Fassung, Kapitel
+  // ---------------------------------------------------------------------------
+
+  group('Titel und Buch-Fassung', () {
+    test('Titel setzen und wieder entfernen – Rohfassung bleibt unberührt',
+        () async {
+      final id = await db.eintragSpeichern(inhalt: 'rohe gedanken');
+
+      await db.eintragTitelSetzen(id!, '  Die leise Frage  ');
+      var eintrag = await db.eintragLaden(id);
+      expect(eintrag?.titel, 'Die leise Frage'); // Leerzeichen entfernt
+      expect(eintrag?.inhalt, 'rohe gedanken'); // Rohfassung unverändert
+
+      await db.eintragTitelSetzen(id, '   '); // leer = entfernen
+      eintrag = await db.eintragLaden(id);
+      expect(eintrag?.titel, isNull);
+    });
+
+    test('Titel, Kapitel und Buch-Fassung ändern NICHT das Änderungsdatum',
+        () async {
+      final id = await db.eintragSpeichern(inhalt: 'rohe gedanken');
+      final kapitelId = await db.kapitelAnlegen('Neuanfänge');
+
+      // Eine Stunde später: nur „Metadaten“ setzen.
+      testZeit = testZeit.add(const Duration(hours: 1));
+      await db.eintragTitelSetzen(id!, 'Titel');
+      await db.eintragKapitelSetzen(id, kapitelId);
+      await db.buchFassungSpeichern(id, 'Schöne Fassung.');
+
+      final eintrag = await db.eintragLaden(id);
+      // geaendertAm ist noch der ursprüngliche Zeitpunkt (22:00 Uhr).
+      expect(eintrag?.geaendertAm, DateTime(2026, 11, 25, 22, 0));
+    });
+
+    test('Buch-Fassung wird mit Zeitpunkt gespeichert', () async {
+      final id = await db.eintragSpeichern(inhalt: 'heute war gut');
+      testZeit = testZeit.add(const Duration(minutes: 30));
+
+      await db.buchFassungSpeichern(id!, 'Heute war ein guter Tag.');
+
+      final eintrag = await db.eintragLaden(id);
+      expect(eintrag?.buchFassung, 'Heute war ein guter Tag.');
+      expect(eintrag?.buchFassungAm, DateTime(2026, 11, 25, 22, 30));
+      expect(eintrag?.inhalt, 'heute war gut'); // Rohfassung bleibt
+    });
+
+    test('Buch-Fassung ist veraltet, wenn die Rohfassung danach geändert wurde',
+        () async {
+      final id = await db.eintragSpeichern(inhalt: 'erste fassung');
+      testZeit = testZeit.add(const Duration(minutes: 5));
+      await db.buchFassungSpeichern(id!, 'Erste Fassung.');
+
+      var eintrag = await db.eintragLaden(id);
+      expect(GedankengutDatenbank.buchFassungVeraltet(eintrag!), isFalse);
+
+      // Später weitergeschrieben → Buch-Fassung passt nicht mehr.
+      testZeit = testZeit.add(const Duration(minutes: 5));
+      await db.eintragSpeichern(id: id, inhalt: 'erste fassung und mehr');
+
+      eintrag = await db.eintragLaden(id);
+      expect(GedankengutDatenbank.buchFassungVeraltet(eintrag!), isTrue);
+    });
+
+    test('ohne Buch-Fassung ist nichts veraltet', () async {
+      final id = await db.eintragSpeichern(inhalt: 'nur roh');
+      final eintrag = await db.eintragLaden(id!);
+      expect(GedankengutDatenbank.buchFassungVeraltet(eintrag!), isFalse);
+    });
+  });
+
+  group('Kapitel', () {
+    test('werden in der Reihenfolge des Anlegens geliefert', () async {
+      await db.kapitelAnlegen('Neuanfänge');
+      testZeit = testZeit.add(const Duration(days: 1));
+      await db.kapitelAnlegen('Prüfungszeit');
+
+      final kapitel = await db.alleKapitelBeobachten().first;
+      expect(kapitel.map((k) => k.titel), ['Neuanfänge', 'Prüfungszeit']);
+    });
+
+    test('lassen sich umbenennen', () async {
+      final id = await db.kapitelAnlegen('Neuanfang');
+      await db.kapitelUmbenennen(id, 'Neuanfänge');
+
+      final kapitel = await db.alleKapitelBeobachten().first;
+      expect(kapitel.single.titel, 'Neuanfänge');
+    });
+
+    test('Löschen eines Kapitels behält seine Einträge (nur ohne Zuordnung)',
+        () async {
+      final kapitelId = await db.kapitelAnlegen('Prüfungszeit');
+      final eintragId = await db.eintragSpeichern(inhalt: 'Drei Abgaben …');
+      await db.eintragKapitelSetzen(eintragId!, kapitelId);
+      expect((await db.eintragLaden(eintragId))?.kapitelId, kapitelId);
+
+      await db.kapitelLoeschen(kapitelId);
+
+      final eintrag = await db.eintragLaden(eintragId);
+      expect(eintrag, isNotNull); // Eintrag ist noch da …
+      expect(eintrag?.inhalt, 'Drei Abgaben …');
+      expect(eintrag?.kapitelId, isNull); // … nur ohne Kapitel.
+      expect(await db.alleKapitelBeobachten().first, isEmpty);
+    });
+
+    test('Zuordnung zu einem nicht existierenden Kapitel wird abgelehnt',
+        () async {
+      // Der Fremdschlüssel schützt vor „Geister-Kapiteln“.
+      final eintragId = await db.eintragSpeichern(inhalt: 'Test');
+      expect(
+        () => db.eintragKapitelSetzen(eintragId!, 999),
+        throwsA(anything),
+      );
+    });
+  });
 }
