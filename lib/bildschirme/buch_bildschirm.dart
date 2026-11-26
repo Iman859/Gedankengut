@@ -17,8 +17,13 @@
 // Magenta-Kante, Kapitelzeile, kursiver Titel, Ornament, leuchtende
 // Initiale über zwei Zeilen, Fußzeile mit Seitenzahl.
 //
-// PLATZHALTER BIS PHASE 2e: Kapitel und Titel gibt es noch nicht. Bis dahin
-// steht in der Kapitelzeile der Monat und als Titel das Datum.
+// ORDNUNG (Phase 2e): Das Buch ist die GEORDNETE Fassung – erst Kapitel eins
+// mit seinen Seiten, dann Kapitel zwei … und am Ende die „Losen Blätter“
+// (Einträge ohne Kapitel). Die Logik dazu steckt in `daten/buch_ordnung.dart`.
+// Pro Seite gilt:
+//   - Kapitelzeile: „KAPITEL ZWEI · PRÜFUNGSZEIT“ oder „LOSE BLÄTTER“,
+//   - Titel: der Titel des Eintrags – ohne Titel das Datum,
+//   - Text: die Buch-Fassung (später von der KI) – ohne sie die Rohfassung.
 //
 // NEU IN DIESER DATEI: `PageView`
 //   Ein Widget, das seine Kinder als „Seiten“ nebeneinander anordnet, zwischen
@@ -29,6 +34,7 @@
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../daten/buch_ordnung.dart';
 import '../daten/datenbank.dart';
 import '../design/farben.dart';
 import '../design/initialen_text.dart';
@@ -64,15 +70,20 @@ class BuchBildschirm extends StatefulWidget {
 }
 
 class _BuchBildschirmState extends State<BuchBildschirm> {
-  /// Alle Einträge, neueste zuerst (so liefert sie die Datenbank).
+  /// Alle Einträge (die Datenbank liefert sie neueste zuerst; die Ordnung
+  /// fürs Buch übernimmt `buchSeitenOrdnen`).
   late final Stream<List<Eintrag>> _eintraege;
+
+  /// Alle Kapitel. Wir beobachten sie, damit sich das Buch sofort anpasst,
+  /// wenn Kapitel dazukommen (später durch die KI).
+  late final Stream<List<Kapitel>> _kapitel;
 
   /// Steuert das Blättern. Wird erst erzeugt, wenn die Einträge geladen sind –
   /// denn erst dann wissen wir, welche Seite die neueste ist.
   PageController? _seitenSteuerung;
 
-  /// Die Einträge in Buch-Reihenfolge (älteste zuerst) – für „Bearbeiten“.
-  List<Eintrag> _seiten = const [];
+  /// Die Seiten in Buch-Reihenfolge (nach Kapiteln) – für „Bearbeiten“.
+  List<BuchSeite> _seiten = const [];
 
   /// Index der gerade angezeigten Seite (0 = Seite 1).
   int _aktuelleSeite = 0;
@@ -81,6 +92,7 @@ class _BuchBildschirmState extends State<BuchBildschirm> {
   void initState() {
     super.initState();
     _eintraege = widget.datenbank.alleEintraegeBeobachten();
+    _kapitel = widget.datenbank.alleKapitelBeobachten();
   }
 
   @override
@@ -93,7 +105,7 @@ class _BuchBildschirmState extends State<BuchBildschirm> {
   /// „Bearbeiten“: Buch schließen und die id der aktuellen Seite zurückgeben.
   void _bearbeiten() {
     if (_seiten.isEmpty) return;
-    Navigator.of(context).pop(_seiten[_aktuelleSeite].id);
+    Navigator.of(context).pop(_seiten[_aktuelleSeite].eintrag.id);
   }
 
   @override
@@ -107,48 +119,66 @@ class _BuchBildschirmState extends State<BuchBildschirm> {
               children: [
                 _kopfzeile(),
                 Expanded(
-                  child: StreamBuilder<List<Eintrag>>(
-                    stream: _eintraege,
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox.shrink();
+                  // Zwei verschachtelte StreamBuilder: außen die Kapitel,
+                  // innen die Einträge. Ändert sich eines von beiden, wird
+                  // das Buch neu geordnet.
+                  child: StreamBuilder<List<Kapitel>>(
+                    stream: _kapitel,
+                    builder: (context, kapitelSnapshot) =>
+                        StreamBuilder<List<Eintrag>>(
+                          stream: _eintraege,
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData || !kapitelSnapshot.hasData) {
+                              return const SizedBox.shrink();
+                            }
 
-                      // `reversed` dreht die Reihenfolge um: älteste zuerst.
-                      _seiten = snapshot.data!.reversed.toList();
-                      if (_seiten.isEmpty) return const SizedBox.shrink();
+                            // Buch-Reihenfolge: nach Kapiteln, dann lose Blätter.
+                            _seiten = buchSeitenOrdnen(
+                              snapshot.data!,
+                              kapitelSnapshot.data!,
+                            );
+                            if (_seiten.isEmpty) return const SizedBox.shrink();
 
-                      // Beim ersten Mal: auf der neuesten (letzten) Seite öffnen.
-                      if (_seitenSteuerung == null) {
-                        _aktuelleSeite = _seiten.length - 1;
-                        _seitenSteuerung = PageController(
-                          initialPage: _aktuelleSeite,
-                        );
-                      }
+                            // Beim ersten Mal: auf der Seite des NEUESTEN Eintrags
+                            // öffnen – egal, in welchem Kapitel er steht.
+                            if (_seitenSteuerung == null) {
+                              _aktuelleSeite = indexDesNeuestenEintrags(
+                                _seiten,
+                              );
+                              _seitenSteuerung = PageController(
+                                initialPage: _aktuelleSeite,
+                              );
+                            }
 
-                      return PageView.builder(
-                        controller: _seitenSteuerung,
-                        // `reverse: true` spiegelt die Anordnung: Die nächste
-                        // (neuere) Seite liegt LINKS, die ältere RECHTS.
-                        // Dadurch gilt: Finger nach rechts → neuere Seite,
-                        // Finger nach links → ältere Seite.
-                        reverse: true,
-                        itemCount: _seiten.length,
-                        // Merken, welche Seite gerade sichtbar ist.
-                        onPageChanged: (index) => _aktuelleSeite = index,
-                        // Baut nur die sichtbaren Seiten (spart Speicher).
-                        // `AnimatedBuilder` baut die Seite bei JEDER
-                        // Bewegung des Fingers neu ein – so kann sie sich
-                        // passend zur Wischbewegung drehen (Umblättern).
-                        itemBuilder: (context, index) => AnimatedBuilder(
-                          animation: _seitenSteuerung!,
-                          // Die Seite selbst wird nur EINMAL gebaut und als
-                          // `child` weitergereicht – nur die Drehung ändert
-                          // sich. Das hält die Animation flüssig.
-                          child: _seite(_seiten[index], seitenzahl: index + 1),
-                          builder: (context, seite) =>
-                              _umblaettern(index: index, seite: seite!),
+                            return PageView.builder(
+                              controller: _seitenSteuerung,
+                              // `reverse: true` spiegelt die Anordnung: Die nächste
+                              // (neuere) Seite liegt LINKS, die ältere RECHTS.
+                              // Dadurch gilt: Finger nach rechts → neuere Seite,
+                              // Finger nach links → ältere Seite.
+                              reverse: true,
+                              itemCount: _seiten.length,
+                              // Merken, welche Seite gerade sichtbar ist.
+                              onPageChanged: (index) => _aktuelleSeite = index,
+                              // Baut nur die sichtbaren Seiten (spart Speicher).
+                              // `AnimatedBuilder` baut die Seite bei JEDER
+                              // Bewegung des Fingers neu ein – so kann sie sich
+                              // passend zur Wischbewegung drehen (Umblättern).
+                              itemBuilder: (context, index) => AnimatedBuilder(
+                                animation: _seitenSteuerung!,
+                                // Die Seite selbst wird nur EINMAL gebaut und als
+                                // `child` weitergereicht – nur die Drehung ändert
+                                // sich. Das hält die Animation flüssig.
+                                child: _seite(
+                                  _seiten[index],
+                                  seitenzahl: index + 1,
+                                ),
+                                builder: (context, seite) =>
+                                    _umblaettern(index: index, seite: seite!),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
                   ),
                 ),
               ],
@@ -265,7 +295,8 @@ class _BuchBildschirmState extends State<BuchBildschirm> {
   }
 
   /// Eine Buchseite für einen Eintrag.
-  Widget _seite(Eintrag eintrag, {required int seitenzahl}) {
+  Widget _seite(BuchSeite buchSeite, {required int seitenzahl}) {
+    final eintrag = buchSeite.eintrag;
     final datum = eintrag.erstelltAm;
 
     return Padding(
@@ -312,28 +343,33 @@ class _BuchBildschirmState extends State<BuchBildschirm> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Kapitelzeile (Platzhalter bis 2e: der Monat).
+                          // Kapitelzeile, z. B. „KAPITEL EINS · NEUANFÄNGE“
+                          // oder „LOSE BLÄTTER“.
                           Text(
-                            DateFormat(
-                              'MMMM y',
-                              'de_DE',
-                            ).format(datum).toUpperCase(),
+                            kapitelZeile(buchSeite),
                             style: GedankengutSchriften.beschriftungLeuchtend,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 14),
-                          // Titel (Platzhalter bis 2e: das Datum).
+                          // Titel des Eintrags – ohne Titel das Datum.
                           Text(
-                            DateFormat('EEEE, d. MMMM', 'de_DE').format(datum),
+                            eintrag.titel ??
+                                DateFormat(
+                                  'EEEE, d. MMMM',
+                                  'de_DE',
+                                ).format(datum),
                             style: GedankengutSchriften.buchTitel,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 18),
                           const Ornament(),
                           const SizedBox(height: 22),
-                          // Der Text mit leuchtender Initiale.
+                          // Der Text mit leuchtender Initiale: die
+                          // Buch-Fassung, falls vorhanden – sonst die
+                          // Rohfassung. (`??` = „falls links null ist,
+                          // nimm das Rechte“.)
                           InitialenText(
-                            text: eintrag.inhalt,
+                            text: eintrag.buchFassung ?? eintrag.inhalt,
                             textStil: GedankengutSchriften.fliesstext,
                             initialenStil: GedankengutSchriften.initiale,
                             blocksatz: BuchBildschirm.blocksatz,

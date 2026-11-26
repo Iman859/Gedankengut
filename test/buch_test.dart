@@ -225,5 +225,52 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       },
     );
+
+    testWidgets(
+      'ordnet nach Kapiteln, zeigt Kapitelzeile, Titel und Buch-Fassung',
+      (tester) async {
+        // Ein Kapitel und drei Einträge an drei Tagen:
+        //   Montag   → Kapitel „Neuanfänge“
+        //   Dienstag → ohne Kapitel (lose Blätter)
+        //   Mittwoch → Kapitel „Neuanfänge“, mit Titel + Buch-Fassung (neuester)
+        final kapitelId = await db.kapitelAnlegen('Neuanfänge');
+        final montag = await db.eintragSpeichern(inhalt: 'Montagstext');
+        await db.eintragKapitelSetzen(montag!, kapitelId);
+        testZeit = testZeit.add(const Duration(days: 1));
+        await db.eintragSpeichern(inhalt: 'Dienstagstext');
+        testZeit = testZeit.add(const Duration(days: 1));
+        final mittwoch = await db.eintragSpeichern(
+          inhalt: 'roh und unsortiert',
+        );
+        await db.eintragKapitelSetzen(mittwoch!, kapitelId);
+        await db.eintragTitelSetzen(mittwoch, 'Die leise Frage');
+        await db.buchFassungSpeichern(mittwoch, 'Heute war es wieder da.');
+        testZeit = testZeit.add(const Duration(days: 1));
+
+        await tester.pumpWidget(GedankengutApp(datenbank: db));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Einträge'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Als Buch lesen'));
+        await tester.pumpAndSettle();
+
+        // Buch-Reihenfolge: Kapitel eins (Montag, Mittwoch), dann lose Blätter
+        // (Dienstag). Geöffnet wird der NEUESTE Eintrag (Mittwoch) = Seite 2.
+        expect(find.text('— 2 —'), findsOneWidget);
+        expect(find.text('KAPITEL EINS · NEUANFÄNGE'), findsOneWidget);
+        expect(find.text('Die leise Frage'), findsOneWidget);
+        // Gezeigt wird die Buch-Fassung (Initiale „H“ + Rest), nicht die Rohfassung.
+        expect(find.text('eute war es wieder da.'), findsOneWidget);
+        expect(find.textContaining('roh und unsortiert'), findsNothing);
+
+        // Nach rechts wischen = nächste Seite → lose Blätter (Dienstag).
+        await tester.fling(find.byType(PageView), const Offset(400, 0), 1000);
+        await tester.pumpAndSettle();
+        expect(find.text('— 3 —'), findsOneWidget);
+        expect(find.text('LOSE BLÄTTER'), findsOneWidget);
+
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
   });
 }
