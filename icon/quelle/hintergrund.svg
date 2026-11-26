@@ -1,0 +1,37 @@
+<!--
+  App-Icon „Kopf voller Sterne“ – HINTERGRUND-EBENE (adaptives Android-Icon)
+
+  Was ist ein adaptives Icon?
+  Seit Android 8 besteht ein App-Icon aus zwei Ebenen (Hintergrund + Vordergrund),
+  die je 108 × 108 dp groß sind. Der Launcher (Startbildschirm) schneidet daraus
+  die sichtbare Form aus – beim Pixel einen Kreis von 72 dp Durchmesser – und
+  verschiebt die Ebenen leicht gegeneinander (Parallax-Effekt).
+
+  Koordinaten (gilt für alle Dateien in diesem Ordner):
+  Der Entwurf auf der Design-Leinwand (M6) ist 200 × 200 Einheiten groß und
+  entspricht dem SICHTBAREN Bereich (72 dp). Die ganze Ebene (108 dp) ist
+  deshalb 300 × 300 Einheiten groß: viewBox "-50 -50 300 300".
+  So stimmen die Zahlen hier 1:1 mit dem Entwurf überein.
+
+  Inhalt: der Nachthimmel-Verlauf aus dem Entwurf
+  (CSS: radial-gradient(circle at 55% 42%, #1E2380 0%, #0E1250 32%, #0A0E24 62%, #060815 100%)).
+  „circle at 55% 42%“ → Mittelpunkt (110, 84); CSS nimmt als Radius den Abstand
+  zur entferntesten Ecke (0, 200): √(110² + 116²) ≈ 159,9.
+  Außerhalb des Radius bleibt die letzte Farbe (#060815) stehen.
+
+  Der Kopf im Vordergrund wurde für die optische Mitte um 8 nach links
+  geschoben – der helle Kern des Verlaufs wandert mit, damit er weiterhin
+  hinter dem Kopf leuchtet: cx 110 → 102 (Radius bleibt wie im Entwurf).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 300 300" width="1024" height="1024">
+  <defs>
+    <radialGradient id="himmel" gradientUnits="userSpaceOnUse" cx="102" cy="84" r="159.9">
+      <stop offset="0" stop-color="#1E2380"/>
+      <stop offset="0.32" stop-color="#0E1250"/>
+      <stop offset="0.62" stop-color="#0A0E24"/>
+      <stop offset="1" stop-color="#060815"/>
+    </radialGradient>
+  </defs>
+  <!-- Die ganze Ebene füllen (auch den Rand, den der Launcher für Parallax braucht). -->
+  <rect x="-50" y="-50" width="300" height="300" fill="url(#himmel)"/>
+</svg>

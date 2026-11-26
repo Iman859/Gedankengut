@@ -1,0 +1,32 @@
+# =============================================================================
+# Einstellungen für das Paket flutter_launcher_icons
+# =============================================================================
+# Das Paket erzeugt aus unseren PNG-Bildern alle Icon-Dateien, die Android in
+# verschiedenen Größen braucht. Gestartet wird es über icon/erzeugen.sh
+# (das vorher auch die PNGs aus den SVG-Quellen in icon/quelle/ baut).
+#
+# Vorerst nur Android – macOS kommt erst ganz am Ende (Projektentscheidung).
+# =============================================================================
+
+flutter_launcher_icons:
+  # Name der Icon-Ressource; passt zu android:icon="@mipmap/ic_launcher"
+  # in android/app/src/main/AndroidManifest.xml.
+  android: "ic_launcher"
+  ios: false
+
+  # Klassisches Icon für alte Android-Versionen (vor Android 8), rund maskiert.
+  image_path: "icon/png/komplett.png"
+
+  # Adaptives Icon (Android 8+): zwei Ebenen, die der Launcher zuschneidet.
+  adaptive_icon_background: "icon/png/hintergrund.png"
+  adaptive_icon_foreground: "icon/png/vordergrund.png"
+
+  # Einfarbige Ebene für „Designsymbole“ (Android 13+).
+  adaptive_icon_monochrome: "icon/png/monochrom.png"
+
+  # Standardmäßig rückt das Paket den Vordergrund um 16 % ein. Unsere Ebenen
+  # haben den Rand (Schutzzone) schon eingebaut – also kein zusätzlicher Abstand.
+  adaptive_icon_foreground_inset: 0
+
+  # Mindest-Android-Version, ab der adaptive Icons genutzt werden (Standard 21).
+  min_sdk_android: 21

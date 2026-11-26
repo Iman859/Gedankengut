@@ -25,7 +25,7 @@ Erkenntnisse aus der Psychologie, unter anderem:
 
 - [x] Schnelles, ablenkungsfreies Schreiben – komplett offline, Daten bleiben auf dem Gerät
 - [x] Automatisches Speichern und Übersicht aller Einträge
-- [ ] Buch-Design mit Kapiteln (dunkelblau, lila, ruhig, im Stil eines Notizbuchs)
+- [x] Buch-Design mit Kapiteln (dunkelblau, lila, ruhig, im Stil eines Notizbuchs)
 - [ ] Schreibmodi: freies Schreiben, Gefühle benennen, Gedanken-Check, Entscheidungen
 - [ ] Verschönern von Einträgen mit KI-Unterstützung (das Original bleibt immer erhalten)
 - [ ] Wochenrückblick und Export als Buch (PDF)
@@ -37,7 +37,12 @@ Erkenntnisse aus der Psychologie, unter anderem:
 Seite, speichert automatisch in einer lokalen Datenbank und zeigt alle
 Einträge in einer Übersicht (öffnen, weiterschreiben, löschen).
 
-🚧 **Als Nächstes: Phase 2 – Design** (Buch-Look mit Kapiteln).
+✅ **Phase 2 – Design „Neon-Eleganz“ abgeschlossen.** Nachtblaues Design mit
+Neon-Akzenten und Sternenhimmel, Schreibseite mit Fokus-Leuchten, Übersicht als
+Zeitstrahl, Buchansicht mit Kapiteln und 3D-Umblättern, eigenes App-Icon.
+
+🚧 **Als Nächstes: KI-Unterstützung** – aus den rohen Einträgen entsteht eine
+geordnete, korrigierte Buch-Fassung mit Titel- und Kapitelvorschlägen.
 
 ## Technik
 
@@ -58,6 +63,31 @@ flutter run
 # Tests ausführen
 flutter test
 ```
+
+## App-Icon
+
+Das Icon „Kopf voller Sterne“ liegt als bearbeitbare SVG-Quelle in
+[`icon/quelle/`](icon/quelle/) – aufgeteilt in die Ebenen, die Android für ein
+adaptives Icon braucht:
+
+| Datei | Inhalt |
+| --- | --- |
+| `hintergrund.svg` | Nachthimmel-Verlauf |
+| `vordergrund.svg` | Kopf mit Sternen und Leuchten |
+| `monochrom.svg` | einfarbige Fassung für die „Designsymbole“ (Android 13+) |
+
+Nach einer Änderung an den SVGs wird das Icon neu erzeugt mit:
+
+```bash
+# einmalig: Werkzeuge zum Umwandeln der SVGs installieren
+brew install librsvg imagemagick
+
+# SVG → PNG (icon/png/) → alle Android-Icon-Größen
+bash icon/erzeugen.sh
+```
+
+Das Skript nutzt das Paket [`flutter_launcher_icons`](https://pub.dev/packages/flutter_launcher_icons);
+dessen Einstellungen stehen in [`flutter_launcher_icons.yaml`](flutter_launcher_icons.yaml).
 
 ## Lizenz
 
