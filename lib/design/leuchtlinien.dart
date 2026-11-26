@@ -55,6 +55,62 @@ class Buchruecken extends StatelessWidget {
   }
 }
 
+/// Das Ornament unter Buchtiteln: zwei auslaufende Linien (links Ultramarin,
+/// rechts Magenta) und dazwischen eine leuchtende, auf die Spitze gestellte
+/// Raute – wie eine Zierlinie in einem gedruckten Buch.
+class Ornament extends StatelessWidget {
+  const Ornament({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Linke Linie: blendet von durchsichtig zu Ultramarin ein.
+        Container(
+          width: 44,
+          height: 1,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+              GedankengutFarben.ultramarin.withValues(alpha: 0),
+              GedankengutFarben.ultramarin,
+            ]),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Die Raute: ein Quadrat, um 45° gedreht (`Transform.rotate`,
+        // Winkel im Bogenmaß: 0,785 ≈ π/4 = 45°).
+        Transform.rotate(
+          angle: 0.785,
+          child: Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              border: Border.all(color: GedankengutFarben.magentaHell),
+              boxShadow: GedankengutFarben.flaechenLeuchten(
+                GedankengutFarben.magenta,
+                radius: 8,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Rechte Linie: blendet von Magenta zu durchsichtig aus.
+        Container(
+          width: 44,
+          height: 1,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+              GedankengutFarben.magenta,
+              GedankengutFarben.magenta.withValues(alpha: 0),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Die waagerechte Leuchtlinie (z. B. unter der Kopfzeile).
 /// Nimmt die volle verfügbare Breite ein.
 class Trennleuchtlinie extends StatelessWidget {

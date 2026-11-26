@@ -32,6 +32,8 @@ import '../design/leuchtlinien.dart';
 import '../design/neon_knopf.dart';
 import '../design/punktraster.dart';
 import '../design/schriften.dart';
+// Die Buchseite (wird über „Als Buch lesen“ geöffnet).
+import 'buch_bildschirm.dart';
 
 // -----------------------------------------------------------------------------
 // HILFSFUNKTIONEN (rein rechnerisch, ohne Oberfläche – daher leicht testbar)
@@ -200,7 +202,15 @@ class _EintraegeBildschirmState extends State<EintraegeBildschirm> {
                           .toList();
 
                       if (eintraege.isEmpty) return _leererZustand();
-                      return _liste(eintraege);
+
+                      // Die Liste füllt den Platz, darunter fest der Knopf
+                      // „Als Buch lesen“ (scrollt nicht mit).
+                      return Column(
+                        children: [
+                          Expanded(child: _liste(eintraege)),
+                          _buchKnopf(),
+                        ],
+                      );
                     },
                   ),
                 ),
@@ -208,6 +218,62 @@ class _EintraegeBildschirmState extends State<EintraegeBildschirm> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Öffnet das Buch. Wird dort „Bearbeiten“ gedrückt, kommt die id des
+  /// Eintrags zurück – die reichen wir an die Schreibseite weiter (indem wir
+  /// auch die Übersicht mit dieser id schließen).
+  Future<void> _buchOeffnen() async {
+    final idZumBearbeiten = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (_) => BuchBildschirm(datenbank: widget.datenbank),
+      ),
+    );
+    // Nach einem `await` prüfen, ob dieser Bildschirm noch existiert.
+    if (!mounted || idZumBearbeiten == null) return;
+    Navigator.of(context).pop(idZumBearbeiten);
+  }
+
+  /// Der Knopf „Als Buch lesen“ (Magenta-Rand, Bodoni kursiv).
+  Widget _buchKnopf() {
+    final rundung = BorderRadius.circular(12);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(34, 10, 16, 16),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: rundung,
+          onTap: _buchOeffnen,
+          child: Ink(
+            height: 52,
+            decoration: BoxDecoration(
+              // Ein Hauch Lila im Papier – passend zum Magenta-Rand.
+              color: const Color(0xFF0F0B26),
+              borderRadius: rundung,
+              border: Border.all(
+                color: GedankengutFarben.magenta.withValues(alpha: 0.8),
+              ),
+              boxShadow: GedankengutFarben.flaechenLeuchten(
+                GedankengutFarben.magenta,
+                radius: 18,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.auto_stories,
+                  size: 18,
+                  color: GedankengutFarben.magentaSymbol,
+                ),
+                const SizedBox(width: 10),
+                Text('Als Buch lesen', style: GedankengutSchriften.knopf),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
